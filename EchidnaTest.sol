@@ -17,8 +17,14 @@ contract Test {
    int128 internal constant MAX_64x64 = 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
 
    event Value(string, int64);
+   event Value256(string, int256);
+
    function debug(string memory x, int128 y) internal {
      emit Value(x, ABDKMath64x64.toInt(y));
+   }
+
+   function debug256(string memory x, int256 y) internal {
+     emit Value256(x, y);
    }
 
    function add(int128 x, int128 y) internal pure returns (int128) {
@@ -43,6 +49,14 @@ contract Test {
 
    function div(int128 x, int128 y) internal pure returns (int128) {
      return ABDKMath64x64.div(x, y);
+   }
+
+   function divi(int256 x, int256 y) internal pure returns (int128) {
+     return ABDKMath64x64.divi(x, y);
+   }
+
+   function divu(uint256 x, uint256 y) internal pure returns (int128) {
+     return ABDKMath64x64.divu(x, y);
    }
 
    function fromInt(int256 x) public pure returns (int128) {
@@ -105,6 +119,14 @@ contract Test {
      return ABDKMath64x64.exp(x);
    }
 
+   function avg(int128 x, int128 y) internal pure returns (int128) {
+     return ABDKMath64x64.avg(x, y);
+   }
+
+   function gavg(int128 x, int128 y) internal pure returns (int128) {
+     return ABDKMath64x64.gavg(x, y);
+   }
+
    /// @dev Minimum value for fromInt
    function test_fromInt_min_value(int256 x) public view {
      if(x >= FROM_INT_MIN_VALUE) return; // Reject inputs >= min value
@@ -160,7 +182,7 @@ contract Test {
    }
 
    /// @dev Any valid value created with `fromUInt` converts using `toUInt`
-   function test_valid_fromInt_converts_toInt(uint256 x) public view {
+   function test_valid_fromUInt_converts_toUInt(uint256 x) public view {
      if(x > FROM_UINT_MAX_VALUE) return; // Reject inputs > max value
 
      // Function should never revert
@@ -169,7 +191,15 @@ contract Test {
      }
    }
 
-   /// @dev Minimum value for from128x128
+   /// @dev `toUint` reverts for negative values
+   function test_toUInt_negative_value_reverts(int128 x) public view {
+     if(x >= 0) return; // Reject inputs <= max value
+
+     // Function should always revert
+     try this.toUInt(x) { assert(false); } catch Error(string memory) {}
+   }
+
+   /// @dev Minimum value for `from128x128`
    function test_from128x128_min_value(int256 x) public view {
      if(x >> 64 >= MIN_64x64) return; // Reject inputs >= min value
 
@@ -195,7 +225,7 @@ contract Test {
    }
 
    /// @dev Any valid value created with `from128x128` converts using `to128x128`
-   function test_valid_from128x12x8_converts_to128x128(int256 x) public view {
+   function test_valid_from128x128_converts_to128x128(int256 x) public view {
      if(x >> 64 < MIN_64x64) return; // Reject inputs < min value
      if(x >> 64 > MAX_64x64) return; // Reject inputs > max value
 
@@ -245,6 +275,24 @@ contract Test {
      assert(mul(x, y) == mul(y, x));
    }
 
+   /// @dev Commutative property of multiplication: x * y = y * x
+   function test_muli_commutative(int128 x, int256 y) public {
+     int256 x_256 = int256(x);
+     x = fromInt(x);
+     int128 y_128 = fromInt(y);
+
+     assert(muli(x, y) == muli(y_128, x_256));
+   }
+
+   /// @dev Commutative property of multiplication: x * y = y * x
+   function test_mulu_commutative(int128 x, uint256 y) public pure {
+     uint256 x_u256 = uint256(int256(x));
+     x = fromInt(x);
+     int128 y_128 = fromInt(int256(y));
+
+     assert(mulu(x, y) == mulu(y_128, x_u256));
+   }
+
    /// @dev Associative property of multiplication: (x * y) * z = x * (y * z)
    function test_mul_associative(int128 x, int128 y, int128 z) public pure {
      x = fromInt(x);
@@ -252,6 +300,22 @@ contract Test {
      z = fromInt(z);
 
      assert(mul(mul(x, y), z) == mul(x, mul(y, z)));
+   }
+
+   /// @dev Associative property of multiplication: (x * y) * z = x * (y * z)
+   function test_muli_associative(int128 x, int256 y, int256 z) public pure {
+     x = fromInt(x);
+     int128 y_128 = fromInt(y);
+
+     assert(muli(fromInt(muli(x, y)), z) == muli(x, muli(y_128, z)));
+   }
+
+   /// @dev Associative property of multiplication: (x * y) * z = x * (y * z)
+   function test_mulu_associative(int128 x, uint256 y, uint256 z) public pure {
+     x = fromInt(x);
+     int128 y_128 = fromInt(int256(y));
+
+     assert(mulu(fromUInt(mulu(x, y)), z) == mulu(x, mulu(y_128, z)));
    }
 
    /// @dev Distributive property of multiplication: x * (y + z) = (x * y) + (x * z)
@@ -263,11 +327,39 @@ contract Test {
      assert(mul(x, add(y, z)) == add(mul(x, y), mul(x, z)));
    }
 
+   /// @dev Distributive property of multiplication: x * (y + z) = (x * y) + (x * z)
+   function test_muli_distributive(int128 x, int256 y, int256 z) public pure {
+     x = fromInt(x);
+     int128 y_128 = fromInt(y);
+     int128 z_128 = fromInt(z);
+
+     assert(muli(x, add(y_128, z_128)) == add(fromInt(muli(x, y)), fromInt(muli(x, z))));
+   }
+
+   /// @dev Distributive property of multiplication: x * (y + z) = (x * y) + (x * z)
+   function test_mulu_distributive(int128 x, uint256 y, uint256 z) public pure {
+     x = fromInt(x);
+     int128 y_128 = fromInt(int256(y));
+     int128 z_128 = fromInt(int256(z));
+
+     assert(mulu(x, toUInt(add(y_128, z_128))) == toUInt(add(fromUInt(mulu(x, y)), fromUInt(mulu(x, z)))));
+   }
+
    /// @dev Identity property of multiplication: 1 * x = x
    function test_mul_identity(int128 x) public view {
      x = fromInt(x);
 
      assert(mul(one, x) == x);
+   }
+
+   /// @dev Identity property of multiplication: 1 * x = x
+   function test_muli_identity(int256 x) public view {
+     assert(muli(one, x) == x);
+   }
+
+   /// @dev Identity property of multiplication: 1 * x = x
+   function test_mulu_identity(uint256 x) public view {
+     assert(mulu(one, x) == x);
    }
 
    /// @dev Zero property of multiplication: 0 * x = 0
@@ -277,11 +369,26 @@ contract Test {
      assert(mul(zero, x) == zero);
    }
 
+   /// @dev Zero property of multiplication: 0 * x = 0
+   function test_muli_zero_property(int256 x) public view {
+     assert(muli(zero, x) == 0);
+   }
+
+   /// @dev Zero property of multiplication: 0 * x = 0
+   function test_mulu_zero_property(uint256 x) public view {
+     assert(mulu(zero, x) == 0);
+   }
+
    /// @dev Negation property of multiplication: -1 * x = -x
    function test_mul_negation(int128 x) public view {
      x = fromInt(x);
 
      assert(mul(negOne, x) == neg(x));
+   }
+
+   /// @dev Negation property of multiplication: -1 * x = -x
+   function test_muli_negation(int256 x) public view {
+     assert(muli(negOne, x) == -x);
    }
 
    /// @dev  x * y = (x + x ... + x) y times
@@ -314,16 +421,22 @@ contract Test {
      assert(div(mul(x, y), y) == x);
    }
 
-   //function test_div_right_distributive(int128 x, int128 y, int128 z) public pure {
-   //  x = ABDKMath64x64.fromInt(x);
-   //  y = ABDKMath64x64.fromInt(y);
-   //  z = ABDKMath64x64.fromInt(z);
+   // @dev (x * y) / y = x
+   function test_divi_inverse_of_mul(int128 x, int256 y) public pure {
+     x = fromInt(x);
 
-   //  // exclude cases that round down
-   //  if(add(x, y) < z || abs(z) > abs(x) || abs(z) > abs(y)) return;
+     assert(divi(muli(x, y), y) == x);
+   }
 
-   //  assert(div(add(x, y), z) == add(div(x, z), div(y, z)));
-   //}
+   // @dev (x * y) / y = x
+   function test_divu_inverse_of_mul(uint256 x, uint256 y) public {
+     int128 x_128 = fromInt(int256(x));
+     int128 y_128 = fromInt(int256(y));
+
+     debug("lhs", divu(toUInt(mul(x_128, y_128)), y));
+     debug("rhs", x_128);
+     assert(divu(mulu(x_128, y), y) == x_128);
+   }
 
    /// @dev Exponent rule #1: x^(y + z) = (x^y)  * (x^z)
    function test_pow_exp_rule1(int128 x, int128 y, int128 z) public pure {
@@ -359,18 +472,18 @@ contract Test {
    }
 
    /// @dev sqrt(x * y) = sqrt(x) * sqrt(y)
-   function test_sqrt_mul(int128 x, int128 y) public {
-     x = abs(fromInt(x)); // Ensure x is positive
-     y = abs(fromInt(y)); // Ensure y is positive
+   //function test_sqrt_mul(int128 x, int128 y) public {
+   //  x = abs(fromInt(x)); // Ensure x is positive
+   //  y = abs(fromInt(y)); // Ensure y is positive
 
-     if (sqrt(x) <= one) return;
-     if (sqrt(y) <= one) return;
-     debug("sqrt(x)", sqrt(x));
-     debug("sqrt(y)", sqrt(y));
-     debug("lhs", sqrt(mul(x, y)));
-     debug("rhs", mul(sqrt(x), sqrt(y)));
-     assert(sqrt(mul(x, y)) == mul(sqrt(x), sqrt(y)));
-   }
+   //  if (sqrt(x) <= one) return;
+   //  if (sqrt(y) <= one) return;
+   //  debug("sqrt(x)", sqrt(x));
+   //  debug("sqrt(y)", sqrt(y));
+   //  debug("lhs", sqrt(mul(x, y)));
+   //  debug("rhs", mul(sqrt(x), sqrt(y)));
+   //  assert(sqrt(mul(x, y)) == mul(sqrt(x), sqrt(y)));
+   //}
 
    /// @dev log2(2^x) = x
    function test_log_2_exp_2_inv(int128 x) public pure {
@@ -380,17 +493,38 @@ contract Test {
    }
 
    /// @dev ln(e^x) = x
-   //function test_ln_exp_inv(int128 x) public {
-   //  x = fromInt(x); // Ensure x is positive
+   function test_ln_exp_inv(int128 x) public {
+     x = abs(fromInt(x));
 
-   //  assert(ln(exp(x)) == x);
-   //}
+     debug("exp(x)", exp(x));
+     debug("ln(exp(x))", ln(exp(x)));
+     debug("x", x);
+
+     assert(ln(exp(x)) <= x);
+   }
 
    /// @dev ln(x * y) = ln(x) + ln(y)
-   //function test_ln_addition(int128 x, int128 y) public pure {
-   //  x = fromInt(x);
-   //  y = fromInt(y);
+   function test_ln_addition(int128 x, int128 y) public pure {
+     x = fromInt(x);
+     y = fromInt(y);
 
-   //  assert(ln(mul(x, y)) == add(ln(x), ln(y)));
-   //}
+     assert(ln(mul(x, y)) == add(ln(x), ln(y)));
+   }
+
+   /// @dev avg(x, y) = (x + y) / 2
+   function test_avg(int128 x, int128 y) public pure {
+     int128 two = fromInt(2);
+     x = fromInt(x);
+     y = fromInt(y);
+
+     assert(avg(x, y) == div(add(x, y), two));
+   }
+
+   /// @dev gavg(x, y) = sqrt(x * y)
+   function test_gavg(int128 x, int128 y) public pure {
+     x = fromInt(x);
+     y = fromInt(y);
+
+     assert(gavg(x, y) == sqrt(mul(x, y)));
+   }
 }
